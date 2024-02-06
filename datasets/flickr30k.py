@@ -13,13 +13,13 @@ from torchvision import transforms
 from utils_torch import split_data
 
 
-class Flickr8kDataset(Dataset):
+class Flickr30kDataset(Dataset):
     """
     imgname: just image file name
     imgpath: full path to image file
     """
 
-    def __init__(self, dataset_base_path='data/flickr8k/',
+    def __init__(self, dataset_base_path='data/flickr30k_images/',
                  vocab_set=None, dist='val',
                  startseq="<start>", endseq="<end>", unkseq="<unk>", padseq="<pad>",
                  transformations=None,
@@ -27,13 +27,13 @@ class Flickr8kDataset(Dataset):
                  load_img_to_memory=False,
                  return_type='tensor',
                  device=torch.device('cpu')):
-        self.token = dataset_base_path + 'Flickr8k_text/Flickr8k.token.txt'
-        self.images_path = dataset_base_path + 'Flicker8k_Dataset/'
+        self.token = dataset_base_path + 'Flickr30k.token.txt'
+        self.images_path = dataset_base_path + 'flickr30k_images/'
 
         self.dist_list = {
-            'train': dataset_base_path + 'Flickr8k_text/Flickr_8k.trainImages.txt',
-            'val': dataset_base_path + 'Flickr8k_text/Flickr_8k.devImages.txt',
-            'test': dataset_base_path + 'Flickr8k_text/Flickr_8k.testImages.txt'
+            'train': dataset_base_path + 'Flickr_30k.trainImages.txt',
+            'val': dataset_base_path + 'Flickr_30k.devImages.txt',
+            'test': dataset_base_path + 'Flickr_30k.testImages.txt'
         }
 
         self.load_img_to_memory = load_img_to_memory

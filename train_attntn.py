@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from datasets.flickr8k import Flickr8kDataset
+from datasets.flickr30k import Flickr8kDataset
 from glove import embedding_matrix_creator
 from metrics import *
 from utils_torch import *
@@ -16,7 +16,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 device
 # %%
 
-DATASET_BASE_PATH = 'data/flickr8k/'
+DATASET_BASE_PATH = 'data/flickr30k_images/'
 
 # %%
 
