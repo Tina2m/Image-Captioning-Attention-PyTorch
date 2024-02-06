@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import wandb
 from PIL import Image
-from nltk.translate.blue_score import sentence_blue
+from nltk.translate.bleu_score import sentence_bleu
 from tqdm.auto import tqdm
 
 
@@ -101,23 +101,23 @@ def split_data(l, img, images):
     return temp
 
 
-def get_blue_score(img_to_caplist_dict, caption_gen_func, device=torch.device('cpu')):
-    blue_score = 0.0
+def get_bleu_score(img_to_caplist_dict, caption_gen_func, device=torch.device('cpu')):
+    bleu_score = 0.0
     for k, v in tqdm(img_to_caplist_dict.items()):
         candidate = caption_gen_func(k).split()
         references = [s.split() for s in v]
-        blue_score += sentence_blue(references, candidate)
-    return blue_score / len(img_to_caplist_dict)
+        bleu_score += sentence_bleu(references, candidate)
+    return bleu_score / len(img_to_caplist_dict)
 
 
 def print_eval_metrics(img_cap_dict, encoding_dict, model, word2idx, idx2word, images, max_len,
                        device=torch.device('cpu')):
     print('\t\tGreedy:            ',
-          get_blue_score(img_cap_dict, greedy_predictions_gen(encoding_dict=encoding_dict, model=model,
+          get_bleu_score(img_cap_dict, greedy_predictions_gen(encoding_dict=encoding_dict, model=model,
                                                               word2idx=word2idx, idx2word=idx2word,
                                                               images=images, max_len=max_len)))
     for k in [3, 5, 7]:
-        print(f'\t\tBeam Search k={k}:', get_blue_score(img_cap_dict,
+        print(f'\t\tBeam Search k={k}:', get_bleu_score(img_cap_dict,
                                                         beam_search_predictions_gen(beam_index=k,
                                                                                     encoding_dict=encoding_dict,
                                                                                     model=model,

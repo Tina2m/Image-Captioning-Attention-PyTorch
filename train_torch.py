@@ -114,8 +114,8 @@ def train_model(train_loader, model, loss_fn, optimizer, vocab_size, acc_fn, des
     return running_loss / len(train_loader)
 
 
-def evaluate_model(data_loader, model, loss_fn, vocab_size, blue_score_fn, tensor_to_word_fn, desc=''):
-    running_blue = [0.0] * 5
+def evaluate_model(data_loader, model, loss_fn, vocab_size, bleu_score_fn, tensor_to_word_fn, desc=''):
+    running_bleu = [0.0] * 5
     model.eval()
     t = tqdm(iter(data_loader), desc=f'{desc}')
     for batch_idx, batch in enumerate(t):
@@ -123,14 +123,14 @@ def evaluate_model(data_loader, model, loss_fn, vocab_size, blue_score_fn, tenso
         outputs = tensor_to_word_fn(model.sample(images).cpu().numpy())
 
         for i in (1, 2, 3, 4):
-            running_blue[i] += blue_score_fn(reference_corpus=captions, candidate_corpus=outputs, n=i)
+            running_bleu[i] += bleu_score_fn(reference_corpus=captions, candidate_corpus=outputs, n=i)
         t.set_postfix({
-            'blue1': running_blue[1] / (batch_idx + 1),
-            'blue4': running_blue[4] / (batch_idx + 1),
+            'bleu1': running_bleu[1] / (batch_idx + 1),
+            'bleu4': running_bleu[4] / (batch_idx + 1),
         }, refresh=True)
     for i in (1, 2, 3, 4):
-        running_blue[i] /= len(data_loader)
-    return running_blue
+        running_bleu[i] /= len(data_loader)
+    return running_bleu
 
 
 # %%
@@ -142,8 +142,8 @@ final_model = Captioner(EMBEDDING_DIM, HIDDEN_SIZE, vocab_size, num_layers=2,
 
 loss_fn = torch.nn.CrossEntropyLoss(ignore_index=train_set.pad_value).to(device)
 acc_fn = accuracy_fn(ignore_value=train_set.pad_value)
-sentence_blue_score_fn = blue_score_fn(4, 'sentence')
-corpus_blue_score_fn = blue_score_fn(4, 'corpus')
+sentence_bleu_score_fn = bleu_score_fn(4, 'sentence')
+corpus_bleu_score_fn = bleu_score_fn(4, 'corpus')
 tensor_to_word_fn = words_from_tensors_fn(idx2word=idx2word)
 
 params = list(final_model.decoder.parameters()) + list(final_model.encoder.embed.parameters()) + list(
@@ -189,37 +189,37 @@ train_eval_loader = DataLoader(train_eval_set, batch_size=BATCH_SIZE, shuffle=Fa
                                collate_fn=eval_collate_fn)
 # %%
 train_loss_min = 100
-val_blue4_max = 0.0
+val_bleu4_max = 0.0
 for epoch in range(NUM_EPOCHS):
     train_loss = train_model(desc=f'Epoch {epoch + 1}/{NUM_EPOCHS}', model=final_model,
                              optimizer=optimizer, loss_fn=loss_fn, acc_fn=acc_fn,
                              train_loader=train_loader, vocab_size=vocab_size)
     with torch.no_grad():
-        train_blue = evaluate_model(desc=f'\tTrain blue Score: ', model=final_model,
-                                    loss_fn=loss_fn, blue_score_fn=corpus_blue_score_fn,
+        train_bleu = evaluate_model(desc=f'\tTrain bleu Score: ', model=final_model,
+                                    loss_fn=loss_fn, bleu_score_fn=corpus_bleu_score_fn,
                                     tensor_to_word_fn=tensor_to_word_fn,
                                     data_loader=train_eval_loader, vocab_size=vocab_size)
-        val_blue = evaluate_model(desc=f'\tValidation blue Score: ', model=final_model,
-                                  loss_fn=loss_fn, blue_score_fn=corpus_blue_score_fn,
+        val_bleu = evaluate_model(desc=f'\tValidation bleu Score: ', model=final_model,
+                                  loss_fn=loss_fn, bleu_score_fn=corpus_bleu_score_fn,
                                   tensor_to_word_fn=tensor_to_word_fn,
                                   data_loader=val_loader, vocab_size=vocab_size)
         print(f'Epoch {epoch + 1}/{NUM_EPOCHS}',
-              ''.join([f'train_blue{i}: {train_blue[i]:.4f} ' for i in (1, 4)]),
-              ''.join([f'val_blue{i}: {val_blue[i]:.4f} ' for i in (1, 4)]),
+              ''.join([f'train_bleu{i}: {train_bleu[i]:.4f} ' for i in (1, 4)]),
+              ''.join([f'val_bleu{i}: {val_bleu[i]:.4f} ' for i in (1, 4)]),
               )
-        wandb.log({f'val_blue{i}': val_blue[i] for i in (1, 2, 3, 4)})
-        wandb.log({'train_blue': train_blue[4]})
-        wandb.log({'val_blue': val_blue[4]})
+        wandb.log({f'val_bleu{i}': val_bleu[i] for i in (1, 2, 3, 4)})
+        wandb.log({'train_bleu': train_bleu[4]})
+        wandb.log({'val_bleu': val_bleu[4]})
         state = {
             'epoch': epoch + 1,
             'state_dict': final_model.state_dict(),
             'optimizer': optimizer.state_dict(),
             'train_loss_latest': train_loss,
-            'val_blue4_latest': val_blue[4],
+            'val_bleu4_latest': val_bleu[4],
             'train_loss_min': min(train_loss, train_loss_min),
-            'val_blue4_max': max(val_blue[4], val_blue4_max),
-            'train_blues': train_blue,
-            'val_blues': val_blue,
+            'val_bleu4_max': max(val_bleu[4], val_bleu4_max),
+            'train_bleus': train_bleu,
+            'val_bleus': val_bleu,
         }
         torch.save(state, f'{MODEL_NAME}_latest.pt')
         wandb.save(f'{MODEL_NAME}_latest.pt')
@@ -227,8 +227,8 @@ for epoch in range(NUM_EPOCHS):
             train_loss_min = train_loss
             torch.save(state, f'{MODEL_NAME}''_best_train.pt')
             wandb.save(f'{MODEL_NAME}''_best_train.pt')
-        if val_blue[4] > val_blue4_max:
-            val_blue4_max = val_blue[4]
+        if val_bleu[4] > val_bleu4_max:
+            val_bleu4_max = val_bleu[4]
             torch.save(state, f'{MODEL_NAME}''_best_val.pt')
             wandb.save(f'{MODEL_NAME}''_best_val.pt')
 
@@ -269,21 +269,21 @@ plt.imshow(dset[t_i][0].detach().cpu().permute(1, 2, 0), interpolation="bicubic"
 # %%
 with torch.no_grad():
     model.eval()
-    train_blue = evaluate_model(desc=f'Train: ', model=final_model,
-                                loss_fn=loss_fn, blue_score_fn=corpus_blue_score_fn,
+    train_bleu = evaluate_model(desc=f'Train: ', model=final_model,
+                                loss_fn=loss_fn, bleu_score_fn=corpus_bleu_score_fn,
                                 tensor_to_word_fn=tensor_to_word_fn,
                                 data_loader=train_eval_loader, vocab_size=vocab_size)
-    val_blue = evaluate_model(desc=f'Val: ', model=final_model,
-                              loss_fn=loss_fn, blue_score_fn=corpus_blue_score_fn,
+    val_bleu = evaluate_model(desc=f'Val: ', model=final_model,
+                              loss_fn=loss_fn, bleu_score_fn=corpus_bleu_score_fn,
                               tensor_to_word_fn=tensor_to_word_fn,
                               data_loader=val_loader, vocab_size=vocab_size)
-    test_blue = evaluate_model(desc=f'Test: ', model=final_model,
-                               loss_fn=loss_fn, blue_score_fn=corpus_blue_score_fn,
+    test_bleu = evaluate_model(desc=f'Test: ', model=final_model,
+                               loss_fn=loss_fn, bleu_score_fn=corpus_bleu_score_fn,
                                tensor_to_word_fn=tensor_to_word_fn,
                                data_loader=test_loader, vocab_size=vocab_size)
-    for setname, result in zip(('train', 'val', 'test'), (train_blue, val_blue, test_blue)):
+    for setname, result in zip(('train', 'val', 'test'), (train_bleu, val_bleu, test_bleu)):
         print(setname, end=' ')
         for ngram in (1, 2, 3, 4):
-            print(f'blue-{ngram}: {result[ngram]}', end=' ')
-            wandb.run.summary[f"{setname}_blue{ngram}"] = result[ngram]
+            print(f'bleu-{ngram}: {result[ngram]}', end=' ')
+            wandb.run.summary[f"{setname}_bleu{ngram}"] = result[ngram]
         print()
